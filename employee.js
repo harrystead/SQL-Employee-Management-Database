@@ -32,7 +32,13 @@ const initialQuestion = [
   {
     type: "list",
     message: "What would you like to do?",
-    choices: ["View All Employees", "Add an Employee", "Update an Employee", "Delete an Employee"],
+    choices: [
+      "View All Employees",
+      "Add an Employee",
+      "Update an Employee",
+      "Delete an Employee",
+      "Exit Database",
+    ],
     name: "initialQuestion",
   },
 ];
@@ -46,6 +52,14 @@ const init = () => {
       case "Add an Employee":
         addEmployees();
         break;
+      case "Update an Employee":
+        updateEmployee();
+        break;
+      case "Delete an Employee":
+        deleteEmployee();
+        break;
+      case "Exit Database":
+        return;
     }
   });
 };
@@ -117,15 +131,95 @@ function addEmployees() {
         first_name: response.firstname,
         last_name: response.lastname,
         role_id: roleNo,
-        manager_id: managerNo
+        manager_id: managerNo,
       },
-    function (err, response) {
-      if (err) throw err;
-      console.log(response)
-      allEmployees()
-    })
+      function (err, response) {
+        if (err) throw err;
+        console.log(response);
+        allEmployees();
+      }
+    );
   });
 }
 
+function updateEmployee() {
+  connection.query(
+    "SELECT employee.last_name, role.title FROM employee JOIN role ON employee.role_id = role.id;",
+    function (err, res) {
+      if (err) throw err;
+      console.log(res);
+      inquirer
+        .prompt([
+          {
+            name: "lastName",
+            type: "rawlist",
+            choices: function () {
+              var lastName = [];
+              for (var i = 0; i < res.length; i++) {
+                lastName.push(res[i].last_name);
+              }
+              return lastName;
+            },
+            message: "What is the Employee's last name? ",
+          },
+          {
+            name: "role",
+            type: "rawlist",
+            message: "What is the Employees new title? ",
+            choices: selectRoles(),
+          },
+        ]).then(function(value) {
+          const roleId = selectRoles().indexOf(value.role) + 1;
+          console.log(roleId);
+          const lastNameVal = value.lastName;
 
-//update and delete.
+          connection.query("UPDATE employee SET role_id = ? WHERE last_name = ?",
+          [roleId, lastNameVal],
+          function(err, response){
+            if(err) throw err;
+            console.log(response)
+            allEmployees();
+          })
+        });
+    }
+  );
+}
+
+
+let eachEmployeeArray = [];
+function selectEachEmployee() {
+  connection.query(
+    "SELECT concat(employee.first_name, ' ' ,  employee.last_name) AS fullname FROM employee",
+    function (err, response) {
+      if (err) throw err;
+      for (var i = 0; i < response.length; i++) {
+          const fullnamesEmployee = response[i].fullname;
+          eachEmployeeArray.push(fullnamesEmployee)
+      }
+    }
+  );
+  return eachEmployeeArray;
+}
+
+const deleteQuestions = [
+  {
+    type: "rawlist",
+    message: "Choose a employee to be deleted.",
+    choices: selectEachEmployee(),
+    name: "delete"
+  }
+]
+
+function deleteEmployee (){
+  inquirer.prompt(deleteQuestions).then((response) => {
+    console.log(response);
+    connection.query("DELETE FROM employee WHERE concat(employee.first_name, ' ' ,  employee.last_name) = ?",
+    [response.delete],
+    function(err, response) {
+      if(err) throw err;
+      console.log(response);
+      allEmployees();
+    })
+  })
+
+}
