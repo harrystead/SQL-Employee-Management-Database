@@ -1,3 +1,4 @@
+const { response } = require("express");
 const inquirer = require("inquirer");
 const mysql = require("mysql");
 
@@ -143,48 +144,41 @@ function addEmployees() {
 }
 
 function updateEmployee() {
-  connection.query(
-    "SELECT employee.last_name, role.title FROM employee JOIN role ON employee.role_id = role.id;",
-    function (err, res) {
-      if (err) throw err;
-      console.log(res);
-      inquirer
-        .prompt([
-          {
-            name: "lastName",
-            type: "rawlist",
-            choices: function () {
-              var lastName = [];
-              for (var i = 0; i < res.length; i++) {
-                lastName.push(res[i].last_name);
-              }
-              return lastName;
-            },
-            message: "What is the Employee's last name? ",
-          },
-          {
-            name: "role",
-            type: "rawlist",
-            message: "What is the Employees new title? ",
-            choices: selectRoles(),
-          },
-        ]).then(function(value) {
-          const roleId = selectRoles().indexOf(value.role) + 1;
-          console.log(roleId);
-          const lastNameVal = value.lastName;
+  connection.query("SELECT title FROM role", function (err, response) {
+    if (err) throw err;
+    inquirer
+      .prompt([
+        {
+          name: "fullName",
+          type: "rawlist",
+          choices: selectEachEmployee(),
+          message: "What is the Employee's full name? ",
+        },
+        {
+          name: "role",
+          type: "rawlist",
+          message: "What is the Employees new title? ",
+          choices: selectRoles(),
+        },
+      ])
+      .then(function (value) {
 
-          connection.query("UPDATE employee SET role_id = ? WHERE last_name = ?",
-          [roleId, lastNameVal],
-          function(err, response){
-            if(err) throw err;
-            console.log(response)
-            allEmployees();
-          })
-        });
-    }
-  );
+        const roleArr = [];
+        for (var i = 0; i < response.length; i++) {
+          roleArr.push(response[i].title);
+        }
+        const roleIdName = roleArr.indexOf(value.role) + 1;
+
+        connection.query("UPDATE employee SET role_id = ? WHERE concat(employee.first_name, ' ' ,  employee.last_name) = ?",
+        [roleIdName, value.fullName],
+        function(err, response){
+          if(err) throw err;
+          console.log(response)
+          allEmployees();
+        })
+      });
+  });
 }
-
 
 let eachEmployeeArray = [];
 function selectEachEmployee() {
@@ -193,8 +187,8 @@ function selectEachEmployee() {
     function (err, response) {
       if (err) throw err;
       for (var i = 0; i < response.length; i++) {
-          const fullnamesEmployee = response[i].fullname;
-          eachEmployeeArray.push(fullnamesEmployee)
+        const fullnamesEmployee = response[i].fullname;
+        eachEmployeeArray.push(fullnamesEmployee);
       }
     }
   );
@@ -206,20 +200,25 @@ const deleteQuestions = [
     type: "rawlist",
     message: "Choose a employee to be deleted.",
     choices: selectEachEmployee(),
-    name: "delete"
-  }
-]
+    name: "delete",
+  },
+];
 
-function deleteEmployee (){
+function deleteEmployee() {
   inquirer.prompt(deleteQuestions).then((response) => {
     console.log(response);
-    connection.query("DELETE FROM employee WHERE concat(employee.first_name, ' ' ,  employee.last_name) = ?",
-    [response.delete],
-    function(err, response) {
-      if(err) throw err;
-      console.log(response);
-      allEmployees();
-    })
-  })
-
+    connection.query(
+      "DELETE FROM employee WHERE concat(employee.first_name, ' ' ,  employee.last_name) = ?",
+      [response.delete],
+      function (err, response) {
+        if (err) throw err;
+        console.log(response);
+        allEmployees();
+      }
+    );
+  });
 }
+
+
+
+
